@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getLocation, getWeatherRange } from "../services/weatherApi";
+import { getLocation,  getHistoricalRange } from "../services/weatherApi";
 import { buildRangeData, formatHourToTime } from "../utils/rangeFormatter";
 import DateRangePicker from "../components/DateRangePicker";
 import RangeChart from "../components/RangeChart";
