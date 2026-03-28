@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { getLocation,  getHistoricalRange } from "../services/weatherApi";
-import { buildRangeData, formatHourToTime } from "../utils/rangeFormatter";
+import { getLocation, getHistoricalRange } from "../services/weatherApi";
+import { formatHourToTime } from "../utils/rangeFormatter";
 import DateRangePicker from "../components/DateRangePicker";
 import RangeChart from "../components/RangeChart";
 
@@ -34,10 +34,46 @@ export default function HistoryRange() {
 
     try {
       setLoading(true);
+
       const { lat, lon } = await getLocation();
-      const res = await getWeatherRange(lat, lon, range.start, range.end);
-      setData(buildRangeData(res.forecast, res.air));
+
+      const res = await getHistoricalRange(
+        lat,
+        lon,
+        range.start,
+        range.end
+      );
+
+      console.log("API RESPONSE:", res);
+
+      // ✅ FIXED: Use res.daily instead of res.forecast.daily
+      const daily = res.daily;
+
+      if (!daily) {
+        setError("No historical data available.");
+        setData([]);
+        return;
+      }
+
+      const formatted = daily.time.map((date, i) => ({
+        date,
+        tempMean: daily.temperature_2m_mean?.[i],
+        tempMax: daily.temperature_2m_max?.[i],
+        tempMin: daily.temperature_2m_min?.[i],
+        precipitation: daily.precipitation_sum?.[i],
+        windSpeed: daily.wind_speed_10m_max?.[i],
+        windDir: daily.wind_direction_10m_dominant?.[i],
+        sunrise: new Date(daily.sunrise?.[i]).getHours(),
+        sunset: new Date(daily.sunset?.[i]).getHours(),
+        pm10: null,
+        pm25: null,
+      }));
+
+      console.log("FORMATTED:", formatted);
+
+      setData(formatted);
     } catch (err) {
+      console.error("ERROR:", err);
       setData([]);
       setError(
         err?.response?.data?.reason ||
@@ -56,8 +92,8 @@ export default function HistoryRange() {
           2-Year Weather Analysis
         </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Pick a range and the charts will appear below. Scroll horizontally and
-          use the brush to zoom.
+          Pick a range and the charts will appear below. Scroll horizontally
+          and use zoom.
         </p>
       </div>
 
@@ -68,14 +104,10 @@ export default function HistoryRange() {
           <button
             onClick={fetchData}
             disabled={loading}
-            className="rounded-2xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-2xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 disabled:opacity-60"
           >
             {loading ? "Loading..." : "Fetch"}
           </button>
-
-          <span className="text-xs text-slate-500">
-            Best results come from shorter date windows when the range is very large.
-          </span>
         </div>
       </div>
 
@@ -105,7 +137,6 @@ export default function HistoryRange() {
               { key: "sunset", color: "#6366F1" },
             ]}
             yTickFormatter={formatHourToTime}
-            tooltipFormatter={(value) => formatHourToTime(value)}
           />
 
           <RangeChart
@@ -116,7 +147,7 @@ export default function HistoryRange() {
           />
 
           <RangeChart
-            title="Max Wind Speed & Dominant Wind Direction"
+            title="Wind Speed & Direction"
             data={data}
             lines={[
               { key: "windSpeed", color: "#EF4444" },
